@@ -1,0 +1,24 @@
+# FastAPI Backend
+fastapi
+uvicorn[standard]
+python-multipart
+
+# Speech-to-Text
+faster-whisper
+av
+torch
+
+# Audio Processing
+librosa
+soundfile
+noisereduce
+scipy
+numpy
+
+# NLP Analysis
+nltk
+textblob
+
+# Utilities
+python-Levenshtein
+jiwer
