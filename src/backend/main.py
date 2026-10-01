@@ -1,10 +1,18 @@
 """
 FastAPI Backend for AI Interview Assessment System
-Provides endpoints for video analysis with STT and NLP scoring
+Provides endpoints for video analysis with Groq Whisper STT and NLP scoring
 """
 import os
-import tempfile
 import traceback
+from pathlib import Path
+from dotenv import load_dotenv
+
+# Automatically load .env file if available
+for p in [Path.cwd() / ".env", Path(__file__).resolve().parent.parent / ".env", Path(__file__).resolve().parent.parent.parent / ".env"]:
+    if p.exists():
+        load_dotenv(dotenv_path=p)
+        break
+
 from fastapi import FastAPI, UploadFile, File, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -12,7 +20,6 @@ from fastapi.responses import JSONResponse
 from stt_service import transcribe_video
 from nlp_service import analyze_interview_response
 
-# Initialize FastAPI app
 app = FastAPI(
     title="AI Interview Assessment API",
     description="API for analyzing interview responses using Speech-to-Text and NLP",
@@ -20,7 +27,6 @@ app = FastAPI(
 )
 
 # Configure CORS for frontend
-# In production, set FRONTEND_URL environment variable
 frontend_url = os.environ.get("FRONTEND_URL", "*")
 allowed_origins = [frontend_url] if frontend_url != "*" else ["*"]
 
@@ -34,6 +40,7 @@ app.add_middleware(
 
 
 @app.get("/")
+@app.get("/api")
 async def root():
     """Root endpoint - API info"""
     return {
@@ -50,7 +57,12 @@ async def root():
 @app.get("/api/health")
 async def health_check():
     """Health check endpoint"""
-    return {"status": "healthy", "message": "API is running"}
+    groq_configured = bool(os.environ.get("GROQ_API_KEY"))
+    return {
+        "status": "healthy",
+        "message": "API is running",
+        "groq_configured": groq_configured
+    }
 
 
 @app.post("/api/transcribe")
@@ -58,29 +70,21 @@ async def transcribe_video_endpoint(video: UploadFile = File(...)):
     """
     Transcribe video to text only
     """
-    if not video.content_type.startswith("video/"):
-        raise HTTPException(status_code=400, detail="File must be a video")
-    
-    # Save uploaded file temporarily
-    with tempfile.NamedTemporaryFile(delete=False, suffix=".webm") as temp_file:
-        content = await video.read()
-        temp_file.write(content)
-        temp_path = temp_file.name
-    
+    content = await video.read()
+    if not content:
+        raise HTTPException(status_code=400, detail="File video kosong")
+
     try:
-        # Transcribe
-        result = transcribe_video(temp_path)
+        result = transcribe_video(content, filename=video.filename or "recording.webm")
         return JSONResponse(content={
             "success": True,
             "transcription": result
         })
+    except ValueError as ve:
+        raise HTTPException(status_code=400, detail=str(ve))
     except Exception as e:
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
-    finally:
-        # Clean up temp file
-        if os.path.exists(temp_path):
-            os.unlink(temp_path)
 
 
 @app.post("/api/analyze")
@@ -88,34 +92,27 @@ async def analyze_interview(video: UploadFile = File(...)):
     """
     Full analysis pipeline: Video → Transcription → NLP Scoring
     """
-    if not video.content_type.startswith("video/"):
-        raise HTTPException(status_code=400, detail="File must be a video")
-    
-    # Save uploaded file temporarily
-    with tempfile.NamedTemporaryFile(delete=False, suffix=".webm") as temp_file:
-        content = await video.read()
-        temp_file.write(content)
-        temp_path = temp_file.name
-    
+    content = await video.read()
+    if not content:
+        raise HTTPException(status_code=400, detail="File video kosong")
+
     try:
-        # Step 1: Transcribe video
-        transcription = transcribe_video(temp_path)
-        
+        # Step 1: Transcribe video via Groq Whisper Cloud
+        transcription = transcribe_video(content, filename=video.filename or "recording.webm")
+
         # Step 2: Analyze with NLP
         analysis = analyze_interview_response(transcription["text"])
-        
+
         return JSONResponse(content={
             "success": True,
             "transcription": transcription,
             "analysis": analysis
         })
+    except ValueError as ve:
+        raise HTTPException(status_code=400, detail=str(ve))
     except Exception as e:
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
-    finally:
-        # Clean up temp file
-        if os.path.exists(temp_path):
-            os.unlink(temp_path)
 
 
 if __name__ == "__main__":

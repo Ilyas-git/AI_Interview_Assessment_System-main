@@ -1,24 +1,5 @@
-# FastAPI Backend
-fastapi
-uvicorn[standard]
-python-multipart
-
-# Speech-to-Text
-faster-whisper
-av
-torch
-
-# Audio Processing
-librosa
-soundfile
-noisereduce
-scipy
-numpy
-
-# NLP Analysis
-nltk
-textblob
-
-# Utilities
-python-Levenshtein
-jiwer
+fastapi>=0.109.0
+uvicorn>=0.27.0
+python-multipart>=0.0.9
+groq>=0.11.0
+python-dotenv>=1.0.0
