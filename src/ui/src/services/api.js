@@ -54,7 +54,10 @@ export async function transcribeVideo(videoFile) {
  */
 export async function checkHealth() {
   try {
-    const response = await fetch(`${API_BASE_URL}/api/health`);
+    let response = await fetch(`${API_BASE_URL}/api/health`);
+    if (!response.ok) {
+      response = await fetch(`${API_BASE_URL}/health`);
+    }
     return response.ok;
   } catch {
     return false;
