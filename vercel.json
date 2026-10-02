@@ -1,7 +1,4 @@
-﻿{
-  "version": 2,
-  "buildCommand": "cd src/ui && npm install && npm run build",
-  "outputDirectory": "src/ui/dist",
+{
   "rewrites": [
     {
       "source": "/api/(.*)",
